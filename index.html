@@ -499,8 +499,491 @@
             <option value="">선택</option>
             <option value="사무용품">사무용품</option>
             <option value="소모품">소모품</option>
-            <option value="주방/탕비/
+            <option value="주방/탕비/간식">주방/탕비/간식</option>
+            <option value="가전/가구">가전/가구</option>
+            <option value="IT/장비">IT/장비</option>
+            <option value="숙소/시설용품">숙소/시설용품</option>
+            <option value="비품(리필항목)">비품(리필항목)</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div class="admin-field">
+          <label for="adminPrice">금액(원)</label>
+          <input id="adminPrice" class="admin-input" type="number" min="0" step="1" />
+        </div>
+        <div class="admin-field">
+          <label for="adminUrl">링크(URL)</label>
+          <input id="adminUrl" class="admin-input" type="text" />
+        </div>
+        <div class="admin-field">
+          <label for="adminTags">태그 (쉼표 구분)</label>
+          <input id="adminTags" class="admin-input" type="text" placeholder="본사, 회의실, 정기구매" />
+        </div>
+      </div>
 
+      <div class="admin-actions">
+        <button id="adminNewBtn" class="btn-outline btn-small">
+          입력폼 초기화
+        </button>
+        <button id="adminAddBtn" class="btn-primary btn-small">
+          새 항목 추가
+        </button>
+        <button id="adminUpdateBtn" class="btn-outline btn-small">
+          선택 항목 수정
+        </button>
+        <button id="adminDeleteBtn" class="btn-outline btn-small btn-danger">
+          선택 항목 삭제
+        </button>
+        <button id="adminDownloadBtn" class="btn-primary btn-small">
+          CSV 다운로드
+        </button>
+        <div id="adminStatus" style="font-size:11px;color:#9ca3af;margin-left:6px;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ===== 전역 상태 =====
+    let items = [];
+    let currentCategory = "ALL";
+    let searchTerm = "";
+    let sortOption = "default";
+    let adminMode = false;
+    let selectedIndex = null; // items 배열 인덱스 기준
+
+    const categoryTabsEl = document.getElementById("categoryTabs");
+    const searchInput = document.getElementById("searchInput");
+    const sortSelect = document.getElementById("sortSelect");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const adminToggleBtn = document.getElementById("adminToggleBtn");
+    const itemTbody = document.getElementById("itemTbody");
+    const noData = document.getElementById("noData");
+    const errorBox = document.getElementById("errorBox");
+    const countInfo = document.getElementById("countInfo");
+    const adminPanel = document.getElementById("adminPanel");
+    const adminName = document.getElementById("adminName");
+    const adminCategory = document.getElementById("adminCategory");
+    const adminPrice = document.getElementById("adminPrice");
+    const adminUrl = document.getElementById("adminUrl");
+    const adminTags = document.getElementById("adminTags");
+    const adminNewBtn = document.getElementById("adminNewBtn");
+    const adminAddBtn = document.getElementById("adminAddBtn");
+    const adminUpdateBtn = document.getElementById("adminUpdateBtn");
+    const adminDeleteBtn = document.getElementById("adminDeleteBtn");
+    const adminDownloadBtn = document.getElementById("adminDownloadBtn");
+    const adminStatus = document.getElementById("adminStatus");
+
+    // ===== CSV 파서 =====
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let field = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"' && inQuotes && next === '"') {
+          field += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === "," && !inQuotes) {
+          row.push(field);
+          field = "";
+        } else if ((char === "\n" || char === "\r") && !inQuotes) {
+          if (field !== "" || row.length > 0) {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = "";
+          }
+        } else {
+          field += char;
+        }
+      }
+      if (field !== "" || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+      }
+
+      if (!rows.length) return [];
+
+      const header = rows[0].map(h => h.trim());
+      const nameIdx = header.indexOf("name");
+      const catIdx = header.indexOf("category");
+      const priceIdx = header.indexOf("price");
+      const urlIdx = header.indexOf("url");
+      const tagsIdx = header.indexOf("tags");
+
+      const dataRows = rows.slice(1).filter(r => r.some(v => v.trim() !== ""));
+
+      return dataRows.map(cols => {
+        const name = cols[nameIdx] ? cols[nameIdx].trim() : "";
+        const category = cols[catIdx] ? cols[catIdx].trim() : "";
+        const priceRaw = cols[priceIdx] ? cols[priceIdx].replace(/,/g, "").trim() : "";
+        const url = cols[urlIdx] ? cols[urlIdx].trim() : "";
+        const tagsRaw = tagsIdx >= 0 && cols[tagsIdx] ? cols[tagsIdx].trim() : "";
+
+        const price = priceRaw ? Number(priceRaw) : 0;
+        const tags = tagsRaw
+          ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean)
+          : [];
+
+        return { name, category, price, url, tags };
+      }).filter(it => it.name && it.url);
+    }
+
+    function formatPrice(num) {
+      if (typeof num !== "number" || Number.isNaN(num) || num === 0) return "";
+      return num.toLocaleString("ko-KR");
+    }
+
+    // CSV로 저장용 escape
+    function escapeCsv(value) {
+      if (value == null) return "";
+      const str = String(value);
+      if (str.includes('"') || str.includes(",") || str.includes("\n")) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }
+
+    // 카테고리 탭 렌더링
+    function renderCategories() {
+      const set = new Set();
+      items.forEach(it => {
+        if (it.category) set.add(it.category);
+      });
+      const categories = Array.from(set).sort();
+
+      categoryTabsEl.innerHTML = "";
+
+      const allBtn = document.createElement("button");
+      allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
+      allBtn.textContent = "전체";
+      allBtn.dataset.value = "ALL";
+      categoryTabsEl.appendChild(allBtn);
+
+      categories.forEach(cat => {
+        const btn = document.createElement("button");
+        btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
+        btn.textContent = cat;
+        btn.dataset.value = cat;
+        categoryTabsEl.appendChild(btn);
+      });
+    }
+
+    function applyFilters(data) {
+      return data.filter(it => {
+        const matchCategory =
+          currentCategory === "ALL" || it.category === currentCategory;
+
+        const keyword = searchTerm.toLowerCase();
+        const text =
+          (it.name || "") +
+          " " +
+          (it.category || "") +
+          " " +
+          (it.tags || []).join(" ");
+
+        const matchSearch =
+          !keyword || text.toLowerCase().includes(keyword);
+
+        return matchCategory && matchSearch;
+      });
+    }
+
+    function applySort(data) {
+      const arr = [...data];
+      if (sortOption === "name-asc") {
+        arr.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+      } else if (sortOption === "price-asc") {
+        arr.sort((a, b) => (a.price || 0) - (b.price || 0));
+      } else if (sortOption === "price-desc") {
+        arr.sort((a, b) => (b.price || 0) - (a.price || 0));
+      }
+      return arr;
+    }
+
+    function renderTable(data) {
+      itemTbody.innerHTML = "";
+
+      if (!data.length) {
+        noData.style.display = "block";
+      } else {
+        noData.style.display = "none";
+      }
+
+      data.forEach(it => {
+        const tr = document.createElement("tr");
+        const itemIndex = items.indexOf(it);
+        tr.dataset.index = itemIndex >= 0 ? String(itemIndex) : "";
+        if (selectedIndex !== null && itemIndex === selectedIndex) {
+          tr.classList.add("selected-row");
+        }
+
+        const nameTd = document.createElement("td");
+        nameTd.className = "name-cell";
+        nameTd.textContent = it.name;
+
+        const catTd = document.createElement("td");
+        const catPill = document.createElement("span");
+        catPill.className = "category-pill";
+        catPill.textContent = it.category || "-";
+        catTd.appendChild(catPill);
+
+        const tagsTd = document.createElement("td");
+        const tagsWrap = document.createElement("div");
+        tagsWrap.className = "tags";
+        if (it.tags && it.tags.length) {
+          it.tags.forEach(tag => {
+            const pill = document.createElement("span");
+            pill.className = "tag-pill";
+            pill.textContent = tag;
+            tagsWrap.appendChild(pill);
+          });
+        }
+        tagsTd.appendChild(tagsWrap);
+
+        const priceTd = document.createElement("td");
+        priceTd.className = "price";
+        priceTd.textContent = formatPrice(it.price);
+
+        const linkTd = document.createElement("td");
+        linkTd.className = "link-cell";
+        const a = document.createElement("a");
+        a.className = "btn-link";
+        a.href = it.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = "주문 페이지";
+        linkTd.appendChild(a);
+
+        tr.appendChild(nameTd);
+        tr.appendChild(catTd);
+        tr.appendChild(tagsTd);
+        tr.appendChild(priceTd);
+        tr.appendChild(linkTd);
+
+        itemTbody.appendChild(tr);
+      });
+
+      countInfo.textContent = `표시: ${data.length}개 / 전체 ${items.length}개`;
+    }
+
+    function render() {
+      const filtered = applyFilters(items);
+      const sorted = applySort(filtered);
+      renderTable(sorted);
+    }
+
+    async function loadItems() {
+      try {
+        errorBox.style.display = "none";
+        errorBox.textContent = "";
+        selectedIndex = null;
+        adminStatus.textContent = "";
+
+        const res = await fetch("items.csv?v=" + Date.now());
+        if (!res.ok) {
+          throw new Error("items.csv를 불러오지 못했습니다 (HTTP " + res.status + ")");
+        }
+        const text = await res.text();
+        items = parseCsv(text);
+
+        if (!items.length) {
+          throw new Error("items.csv에 유효한 데이터가 없습니다.");
+        }
+
+        renderCategories();
+        render();
+      } catch (err) {
+        console.error(err);
+        errorBox.style.display = "block";
+        errorBox.textContent =
+          "데이터 로딩 오류: " +
+          err.message +
+          "  (items.csv 위치와 형식을 확인하세요)";
+      }
+    }
+
+    // ===== 관리자 모드 유틸 =====
+    function setAdminMode(on) {
+      adminMode = on;
+      adminPanel.style.display = on ? "block" : "none";
+      adminToggleBtn.classList.toggle("btn-admin-active", on);
+      adminStatus.textContent = on ? "행을 클릭하면 선택됩니다." : "";
+    }
+
+    function clearAdminForm() {
+      adminName.value = "";
+      adminCategory.value = "";
+      adminPrice.value = "";
+      adminUrl.value = "";
+      adminTags.value = "";
+      selectedIndex = null;
+      Array.from(itemTbody.children).forEach(tr => tr.classList.remove("selected-row"));
+      adminStatus.textContent = "입력폼 초기화됨.";
+    }
+
+    function fillAdminFormFromItem(index) {
+      const it = items[index];
+      if (!it) return;
+      adminName.value = it.name || "";
+      adminCategory.value = it.category || "";
+      adminPrice.value = it.price || "";
+      adminUrl.value = it.url || "";
+      adminTags.value = (it.tags || []).join(", ");
+    }
+
+    function validateAdminForm() {
+      const name = adminName.value.trim();
+      const category = adminCategory.value.trim();
+      const priceStr = adminPrice.value.trim();
+      const url = adminUrl.value.trim();
+      if (!name || !category || !url) {
+        adminStatus.textContent = "품명, 카테고리, URL은 필수입니다.";
+        return null;
+      }
+      const price = priceStr ? Number(priceStr) : 0;
+      if (priceStr && Number.isNaN(price)) {
+        adminStatus.textContent = "금액은 숫자로 입력하세요.";
+        return null;
+      }
+      const tags = adminTags.value
+        .split(",")
+        .map(t => t.trim())
+        .filter(Boolean);
+      return { name, category, price, url, tags };
+    }
+
+    function buildCsvFromItems() {
+      const header = "name,category,price,url,tags";
+      const lines = items.map(it => {
+        const tagsJoined = (it.tags || []).join(", ");
+        return [
+          escapeCsv(it.name),
+          escapeCsv(it.category),
+          escapeCsv(it.price ?? ""),
+          escapeCsv(it.url),
+          escapeCsv(tagsJoined),
+        ].join(",");
+      });
+      return [header, ...lines].join("\n");
+    }
+
+    function downloadCsv() {
+      const csv = buildCsvFromItems();
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "items.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      adminStatus.textContent = "CSV 다운로드 완료. GitHub / PowerShare에 이 파일을 업로드하세요.";
+    }
+
+    // ===== 이벤트 바인딩 =====
+    document.addEventListener("DOMContentLoaded", () => {
+      // 카테고리 탭 클릭
+      categoryTabsEl.addEventListener("click", (e) => {
+        const target = e.target.closest(".category-tab");
+        if (!target) return;
+
+        currentCategory = target.dataset.value;
+
+        Array.from(categoryTabsEl.children).forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.value === currentCategory);
+        });
+
+        render();
+      });
+
+      // 테이블 행 클릭 → 선택 + 폼 채우기
+      itemTbody.addEventListener("click", (e) => {
+        const tr = e.target.closest("tr");
+        if (!tr) return;
+        const idxStr = tr.dataset.index;
+        if (idxStr === undefined || idxStr === "") return;
+        selectedIndex = Number(idxStr);
+
+        Array.from(itemTbody.children).forEach(row =>
+          row.classList.toggle("selected-row", row === tr)
+        );
+        fillAdminFormFromItem(selectedIndex);
+        adminStatus.textContent = `선택된 항목 인덱스: ${selectedIndex}`;
+      });
+
+      searchInput.addEventListener("input", (e) => {
+        searchTerm = e.target.value;
+        render();
+      });
+
+      sortSelect.addEventListener("change", (e) => {
+        sortOption = e.target.value;
+        render();
+      });
+
+      refreshBtn.addEventListener("click", loadItems);
+
+      adminToggleBtn.addEventListener("click", () => {
+        setAdminMode(!adminMode);
+      });
+
+      adminNewBtn.addEventListener("click", () => {
+        clearAdminForm();
+      });
+
+      adminAddBtn.addEventListener("click", () => {
+        const data = validateAdminForm();
+        if (!data) return;
+        items.push(data);
+        renderCategories();
+        render();
+        adminStatus.textContent = "새 항목 추가 완료.";
+      });
+
+      adminUpdateBtn.addEventListener("click", () => {
+        if (selectedIndex === null || selectedIndex < 0 || selectedIndex >= items.length) {
+          adminStatus.textContent = "먼저 표에서 수정할 행을 클릭해 선택하세요.";
+          return;
+        }
+        const data = validateAdminForm();
+        if (!data) return;
+        items[selectedIndex] = data;
+        renderCategories();
+        render();
+        adminStatus.textContent = "선택 항목 수정 완료.";
+      });
+
+      adminDeleteBtn.addEventListener("click", () => {
+        if (selectedIndex === null || selectedIndex < 0 || selectedIndex >= items.length) {
+          adminStatus.textContent = "먼저 삭제할 행을 선택하세요.";
+          return;
+        }
+        if (!confirm("정말 이 항목을 삭제할까요?")) return;
+        items.splice(selectedIndex, 1);
+        selectedIndex = null;
+        renderCategories();
+        render();
+        clearAdminForm();
+        adminStatus.textContent = "선택 항목 삭제 완료.";
+      });
+
+      adminDownloadBtn.addEventListener("click", () => {
+        downloadCsv();
+      });
+
+      loadItems();
+    });
+  </script>
+</body>
+</html>
 
 
 
