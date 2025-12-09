@@ -442,28 +442,29 @@
       return num.toLocaleString("ko-KR");
     }
 
-    function renderCategories() {
-      const set = new Set();
-      items.forEach(it => {
-        if (it.category) set.add(it.category);
-      });
-      const categories = Array.from(set).sort();
+   function renderCategories() {
+  const set = new Set();
+  items.forEach(it => {
+    if (it.category) set.add(it.category);
+  });
+  const categories = Array.from(set).sort();
 
-      categoryTabsEl.innerHTML = "";
+  categoryTabsEl.innerHTML = "";
 
-      const allBtn = document.createElement("button");
-      allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
-      allBtn.textContent = "전체";
-      allBtn.dataset.value = "ALL";
-      categoryTabsEl.appendChild(allBtn);
+  const allBtn = document.createElement("button");
+  allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
+  allBtn.textContent = "전체";
+  allBtn.dataset.value = "ALL";
+  categoryTabsEl.appendChild(allBtn);
 
-      categories.forEach(cat => {
-        const btn = document.createElement("button");
-        btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
-        btn.textContent = cat;
-        btn.dataset.value = cat;
-        categoryTabsEl.appendChild(btn);
-      });
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
+    btn.textContent = cat;
+    btn.dataset.value = cat;
+    categoryTabsEl.appendChild(btn);
+  });
+}
 
       categoryTabsEl.addEventListener("click", (e) => {
         const target = e.target.closest(".category-tab");
@@ -623,3 +624,4 @@
   </script>
 </body>
 </html>
+
