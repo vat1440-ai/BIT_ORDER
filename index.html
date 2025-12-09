@@ -204,7 +204,6 @@
       color: #e5e7eb;
       font-size: 10px;
       font-weight: 500;
-      text-transform: none;
     }
 
     .tags {
@@ -373,7 +372,7 @@
     const errorBox = document.getElementById("errorBox");
     const countInfo = document.getElementById("countInfo");
 
-    // ===== CSV 파서 (표준 CSV 대응: 따옴표, 콤마 처리) =====
+    // ===== CSV 파서 (따옴표/콤마 처리) =====
     function parseCsv(text) {
       const rows = [];
       let row = [];
@@ -385,7 +384,6 @@
         const next = text[i + 1];
 
         if (char === '"' && inQuotes && next === '"') {
-          // 이스케이프 된 따옴표 ("")
           field += '"';
           i++;
         } else if (char === '"') {
@@ -436,45 +434,34 @@
       }).filter(it => it.name && it.url);
     }
 
-    // ===== 렌더링 관련 =====
     function formatPrice(num) {
       if (typeof num !== "number" || Number.isNaN(num) || num === 0) return "";
       return num.toLocaleString("ko-KR");
     }
 
-   function renderCategories() {
-  const set = new Set();
-  items.forEach(it => {
-    if (it.category) set.add(it.category);
-  });
-  const categories = Array.from(set).sort();
+    // 카테고리 탭 렌더링
+    function renderCategories() {
+      const set = new Set();
+      items.forEach(it => {
+        if (it.category) set.add(it.category);
+      });
+      const categories = Array.from(set).sort();
 
-  categoryTabsEl.innerHTML = "";
+      categoryTabsEl.innerHTML = "";
 
-  const allBtn = document.createElement("button");
-  allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
-  allBtn.textContent = "전체";
-  allBtn.dataset.value = "ALL";
-  categoryTabsEl.appendChild(allBtn);
+      const allBtn = document.createElement("button");
+      allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
+      allBtn.textContent = "전체";
+      allBtn.dataset.value = "ALL";
+      categoryTabsEl.appendChild(allBtn);
 
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
-    btn.textContent = cat;
-    btn.dataset.value = cat;
-    categoryTabsEl.appendChild(btn);
-  });
-}
-
-      categoryTabsEl.addEventListener("click", (e) => {
-        const target = e.target.closest(".category-tab");
-        if (!target) return;
-        currentCategory = target.dataset.value;
-        Array.from(categoryTabsEl.children).forEach(btn => {
-          btn.classList.toggle("active", btn.dataset.value === currentCategory);
-        });
-        render();
-      }, { once: true }); // 새로 렌더링될 때마다 다시 걸림
+      categories.forEach(cat => {
+        const btn = document.createElement("button");
+        btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
+        btn.textContent = cat;
+        btn.dataset.value = cat;
+        categoryTabsEl.appendChild(btn);
+      });
     }
 
     function applyFilters(data) {
@@ -576,7 +563,6 @@
       renderTable(sorted);
     }
 
-    // ===== 데이터 로딩 =====
     async function loadItems() {
       try {
         errorBox.style.display = "none";
@@ -607,6 +593,20 @@
 
     // ===== 이벤트 바인딩 =====
     document.addEventListener("DOMContentLoaded", () => {
+      // 카테고리 탭 클릭: 이벤트 위임, 한 번만 등록
+      categoryTabsEl.addEventListener("click", (e) => {
+        const target = e.target.closest(".category-tab");
+        if (!target) return;
+
+        currentCategory = target.dataset.value;
+
+        Array.from(categoryTabsEl.children).forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.value === currentCategory);
+        });
+
+        render();
+      });
+
       searchInput.addEventListener("input", (e) => {
         searchTerm = e.target.value;
         render();
@@ -624,4 +624,5 @@
   </script>
 </body>
 </html>
+
 
