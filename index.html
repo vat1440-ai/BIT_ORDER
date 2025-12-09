@@ -541,6 +541,7 @@
 
   <script>
     // ===== 전역 상태 =====
+    const FIXED_CATEGORIES = ["IT/장비", "사무용품", "소모품", "시설", "탕비류"];
     let items = [];
     let currentCategory = "ALL";
     let searchTerm = "";
@@ -648,29 +649,26 @@
     }
 
     // 카테고리 탭 렌더링
-    function renderCategories() {
-      const set = new Set();
-      items.forEach(it => {
-        if (it.category) set.add(it.category);
-      });
-      const categories = Array.from(set).sort();
+  function renderCategories() {
+  categoryTabsEl.innerHTML = "";
 
-      categoryTabsEl.innerHTML = "";
+  // 전체 탭
+  const allBtn = document.createElement("button");
+  allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
+  allBtn.textContent = "전체";
+  allBtn.dataset.value = "ALL";
+  categoryTabsEl.appendChild(allBtn);
 
-      const allBtn = document.createElement("button");
-      allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
-      allBtn.textContent = "전체";
-      allBtn.dataset.value = "ALL";
-      categoryTabsEl.appendChild(allBtn);
+  // 고정 카테고리 탭 (데이터가 없어도 항상 표시)
+  FIXED_CATEGORIES.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
+    btn.textContent = cat;
+    btn.dataset.value = cat;
+    categoryTabsEl.appendChild(btn);
+  });
+}
 
-      categories.forEach(cat => {
-        const btn = document.createElement("button");
-        btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
-        btn.textContent = cat;
-        btn.dataset.value = cat;
-        categoryTabsEl.appendChild(btn);
-      });
-    }
 
     function applyFilters(data) {
       return data.filter(it => {
@@ -981,6 +979,7 @@
   </script>
 </body>
 </html>
+
 
 
 
