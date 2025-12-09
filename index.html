@@ -73,6 +73,10 @@
       align-items: center;
     }
 
+    .toolbar-right {
+      margin-left: auto;
+    }
+
     .search-input {
       padding: 8px 10px;
       border-radius: 999px;
@@ -118,6 +122,11 @@
 
     .btn-outline:hover {
       background: rgba(148, 163, 184, 0.1);
+    }
+
+    .btn-admin-active {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.6);
     }
 
     .category-tabs {
@@ -188,6 +197,10 @@
 
     tbody tr:hover {
       background: radial-gradient(circle at center, rgba(37, 99, 235, 0.22), rgba(15, 23, 42, 0.95));
+    }
+
+    tr.selected-row {
+      background: radial-gradient(circle at center, rgba(34, 197, 94, 0.18), rgba(15, 23, 42, 0.95));
     }
 
     .name-cell {
@@ -267,6 +280,106 @@
       border: 1px solid rgba(248, 113, 113, 0.9);
     }
 
+    /* 관리자 패널 */
+
+    .admin-panel {
+      margin-top: 20px;
+      padding: 14px 16px 16px;
+      border-radius: 16px;
+      background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), rgba(15, 23, 42, 0.96));
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      box-shadow:
+        0 18px 40px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(15, 23, 42, 0.7);
+    }
+
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .admin-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #a7f3d0;
+    }
+
+    .admin-desc {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px 10px;
+      margin-bottom: 10px;
+    }
+
+    .admin-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11px;
+    }
+
+    .admin-field label {
+      color: #cbd5f5;
+    }
+
+    .admin-input,
+    .admin-select {
+      padding: 6px 8px;
+      border-radius: 9px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-small {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+    }
+
+    .btn-danger {
+      border-color: rgba(248, 113, 113, 0.8);
+      color: #fecaca;
+    }
+
+    .btn-danger:hover {
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .btn-primary {
+      border-color: #22c55e;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #020617;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.05);
+    }
+
+    @media (max-width: 900px) {
+      .admin-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 720px) {
       header {
         flex-direction: column;
@@ -291,6 +404,10 @@
       th:nth-child(2),
       td:nth-child(2) {
         display: none; /* 카테고리 컬럼 모바일에서 숨김 */
+      }
+
+      .admin-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -328,6 +445,10 @@
         <button id="refreshBtn" class="btn-outline">
           새로 불러오기
         </button>
+
+        <button id="adminToggleBtn" class="btn-outline">
+          관리자 모드
+        </button>
       </div>
     </div>
 
@@ -354,275 +475,32 @@
         조건에 맞는 품목이 없습니다.
       </div>
     </section>
-  </main>
 
-  <script>
-    // ===== 전역 상태 =====
-    let items = [];
-    let currentCategory = "ALL";
-    let searchTerm = "";
-    let sortOption = "default";
+    <!-- 관리자 패널 -->
+    <section id="adminPanel" class="admin-panel" style="display:none;">
+      <div class="admin-header">
+        <div>
+          <div class="admin-title">관리자 모드 · 항목 추가 / 수정</div>
+          <div class="admin-desc">
+            표에서 행을 클릭하면 아래 입력폼에 값이 채워집니다. 수정 후 저장하거나 새 항목을 추가하세요.
+            완료되면 <b>CSV 다운로드</b> 버튼으로 파일을 내려받아 GitHub / PowerShare에 업로드합니다.
+          </div>
+        </div>
+      </div>
 
-    const categoryTabsEl = document.getElementById("categoryTabs");
-    const searchInput = document.getElementById("searchInput");
-    const sortSelect = document.getElementById("sortSelect");
-    const refreshBtn = document.getElementById("refreshBtn");
-    const itemTbody = document.getElementById("itemTbody");
-    const noData = document.getElementById("noData");
-    const errorBox = document.getElementById("errorBox");
-    const countInfo = document.getElementById("countInfo");
+      <div class="admin-grid">
+        <div class="admin-field">
+          <label for="adminName">품명</label>
+          <input id="adminName" class="admin-input" type="text" />
+        </div>
+        <div class="admin-field">
+          <label for="adminCategory">카테고리</label>
+          <select id="adminCategory" class="admin-select">
+            <option value="">선택</option>
+            <option value="사무용품">사무용품</option>
+            <option value="소모품">소모품</option>
+            <option value="주방/탕비/
 
-    // ===== CSV 파서 (따옴표/콤마 처리) =====
-    function parseCsv(text) {
-      const rows = [];
-      let row = [];
-      let field = "";
-      let inQuotes = false;
 
-      for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        const next = text[i + 1];
-
-        if (char === '"' && inQuotes && next === '"') {
-          field += '"';
-          i++;
-        } else if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
-          row.push(field);
-          field = "";
-        } else if ((char === "\n" || char === "\r") && !inQuotes) {
-          if (field !== "" || row.length > 0) {
-            row.push(field);
-            rows.push(row);
-            row = [];
-            field = "";
-          }
-        } else {
-          field += char;
-        }
-      }
-      if (field !== "" || row.length > 0) {
-        row.push(field);
-        rows.push(row);
-      }
-
-      if (!rows.length) return [];
-
-      const header = rows[0].map(h => h.trim());
-      const nameIdx = header.indexOf("name");
-      const catIdx = header.indexOf("category");
-      const priceIdx = header.indexOf("price");
-      const urlIdx = header.indexOf("url");
-      const tagsIdx = header.indexOf("tags");
-
-      const dataRows = rows.slice(1).filter(r => r.some(v => v.trim() !== ""));
-
-      return dataRows.map(cols => {
-        const name = cols[nameIdx] ? cols[nameIdx].trim() : "";
-        const category = cols[catIdx] ? cols[catIdx].trim() : "";
-        const priceRaw = cols[priceIdx] ? cols[priceIdx].replace(/,/g, "").trim() : "";
-        const url = cols[urlIdx] ? cols[urlIdx].trim() : "";
-        const tagsRaw = tagsIdx >= 0 && cols[tagsIdx] ? cols[tagsIdx].trim() : "";
-
-        const price = priceRaw ? Number(priceRaw) : 0;
-        const tags = tagsRaw
-          ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean)
-          : [];
-
-        return { name, category, price, url, tags };
-      }).filter(it => it.name && it.url);
-    }
-
-    function formatPrice(num) {
-      if (typeof num !== "number" || Number.isNaN(num) || num === 0) return "";
-      return num.toLocaleString("ko-KR");
-    }
-
-    // 카테고리 탭 렌더링
-    function renderCategories() {
-      const set = new Set();
-      items.forEach(it => {
-        if (it.category) set.add(it.category);
-      });
-      const categories = Array.from(set).sort();
-
-      categoryTabsEl.innerHTML = "";
-
-      const allBtn = document.createElement("button");
-      allBtn.className = "category-tab" + (currentCategory === "ALL" ? " active" : "");
-      allBtn.textContent = "전체";
-      allBtn.dataset.value = "ALL";
-      categoryTabsEl.appendChild(allBtn);
-
-      categories.forEach(cat => {
-        const btn = document.createElement("button");
-        btn.className = "category-tab" + (currentCategory === cat ? " active" : "");
-        btn.textContent = cat;
-        btn.dataset.value = cat;
-        categoryTabsEl.appendChild(btn);
-      });
-    }
-
-    function applyFilters(data) {
-      return data.filter(it => {
-        const matchCategory =
-          currentCategory === "ALL" || it.category === currentCategory;
-
-        const keyword = searchTerm.toLowerCase();
-        const text =
-          (it.name || "") +
-          " " +
-          (it.category || "") +
-          " " +
-          (it.tags || []).join(" ");
-
-        const matchSearch =
-          !keyword || text.toLowerCase().includes(keyword);
-
-        return matchCategory && matchSearch;
-      });
-    }
-
-    function applySort(data) {
-      const arr = [...data];
-      if (sortOption === "name-asc") {
-        arr.sort((a, b) => a.name.localeCompare(b.name, "ko"));
-      } else if (sortOption === "price-asc") {
-        arr.sort((a, b) => (a.price || 0) - (b.price || 0));
-      } else if (sortOption === "price-desc") {
-        arr.sort((a, b) => (b.price || 0) - (a.price || 0));
-      }
-      return arr;
-    }
-
-    function renderTable(data) {
-      itemTbody.innerHTML = "";
-
-      if (!data.length) {
-        noData.style.display = "block";
-      } else {
-        noData.style.display = "none";
-      }
-
-      data.forEach(it => {
-        const tr = document.createElement("tr");
-
-        const nameTd = document.createElement("td");
-        nameTd.className = "name-cell";
-        nameTd.textContent = it.name;
-
-        const catTd = document.createElement("td");
-        const catPill = document.createElement("span");
-        catPill.className = "category-pill";
-        catPill.textContent = it.category || "-";
-        catTd.appendChild(catPill);
-
-        const tagsTd = document.createElement("td");
-        const tagsWrap = document.createElement("div");
-        tagsWrap.className = "tags";
-        if (it.tags && it.tags.length) {
-          it.tags.forEach(tag => {
-            const pill = document.createElement("span");
-            pill.className = "tag-pill";
-            pill.textContent = tag;
-            tagsWrap.appendChild(pill);
-          });
-        }
-        tagsTd.appendChild(tagsWrap);
-
-        const priceTd = document.createElement("td");
-        priceTd.className = "price";
-        priceTd.textContent = formatPrice(it.price);
-
-        const linkTd = document.createElement("td");
-        linkTd.className = "link-cell";
-        const a = document.createElement("a");
-        a.className = "btn-link";
-        a.href = it.url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.textContent = "주문 페이지";
-        linkTd.appendChild(a);
-
-        tr.appendChild(nameTd);
-        tr.appendChild(catTd);
-        tr.appendChild(tagsTd);
-        tr.appendChild(priceTd);
-        tr.appendChild(linkTd);
-
-        itemTbody.appendChild(tr);
-      });
-
-      countInfo.textContent = `표시: ${data.length}개 / 전체 ${items.length}개`;
-    }
-
-    function render() {
-      const filtered = applyFilters(items);
-      const sorted = applySort(filtered);
-      renderTable(sorted);
-    }
-
-    async function loadItems() {
-      try {
-        errorBox.style.display = "none";
-        errorBox.textContent = "";
-
-        const res = await fetch("items.csv?v=" + Date.now());
-        if (!res.ok) {
-          throw new Error("items.csv를 불러오지 못했습니다 (HTTP " + res.status + ")");
-        }
-        const text = await res.text();
-        items = parseCsv(text);
-
-        if (!items.length) {
-          throw new Error("items.csv에 유효한 데이터가 없습니다.");
-        }
-
-        renderCategories();
-        render();
-      } catch (err) {
-        console.error(err);
-        errorBox.style.display = "block";
-        errorBox.textContent =
-          "데이터 로딩 오류: " +
-          err.message +
-          "  (items.csv 위치와 형식을 확인하세요)";
-      }
-    }
-
-    // ===== 이벤트 바인딩 =====
-    document.addEventListener("DOMContentLoaded", () => {
-      // 카테고리 탭 클릭: 이벤트 위임, 한 번만 등록
-      categoryTabsEl.addEventListener("click", (e) => {
-        const target = e.target.closest(".category-tab");
-        if (!target) return;
-
-        currentCategory = target.dataset.value;
-
-        Array.from(categoryTabsEl.children).forEach(btn => {
-          btn.classList.toggle("active", btn.dataset.value === currentCategory);
-        });
-
-        render();
-      });
-
-      searchInput.addEventListener("input", (e) => {
-        searchTerm = e.target.value;
-        render();
-      });
-
-      sortSelect.addEventListener("change", (e) => {
-        sortOption = e.target.value;
-        render();
-      });
-
-      refreshBtn.addEventListener("click", loadItems);
-
-      loadItems();
-    });
-  </script>
-</body>
-</html>
 
 
